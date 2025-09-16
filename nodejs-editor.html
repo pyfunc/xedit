@@ -1,0 +1,641 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Edit1 - Visual Data Editor</title>
+    
+    <!-- CodeMirror CSS -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/codemirror.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/theme/monokai.min.css">
+    
+    <!-- CodeMirror JS -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/codemirror.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/yaml/yaml.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/xml/xml.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/javascript/javascript.min.js"></script>
+    
+    <!-- JS Libraries -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/js-yaml/4.1.0/js-yaml.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jsoneditor/9.10.0/jsoneditor.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/jsoneditor/9.10.0/jsoneditor.min.css">
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #fff;
+        }
+        
+        .header {
+            background: rgba(0,0,0,0.3);
+            backdrop-filter: blur(10px);
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+        }
+        
+        .header h1 {
+            font-size: 1.5rem;
+            font-weight: 600;
+        }
+        
+        .file-info {
+            background: rgba(255,255,255,0.1);
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            font-size: 0.9rem;
+        }
+        
+        .controls {
+            display: flex;
+            gap: 1rem;
+        }
+        
+        button {
+            background: rgba(255,255,255,0.2);
+            border: 1px solid rgba(255,255,255,0.3);
+            color: white;
+            padding: 0.5rem 1.5rem;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: 500;
+        }
+        
+        button:hover {
+            background: rgba(255,255,255,0.3);
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+        }
+        
+        button:active {
+            transform: translateY(0);
+        }
+        
+        .save-btn {
+            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+            border: none;
+        }
+        
+        .container {
+            display: flex;
+            height: calc(100vh - 80px);
+            padding: 1rem;
+            gap: 1rem;
+        }
+        
+        .panel {
+            flex: 1;
+            background: rgba(255,255,255,0.95);
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .panel-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 1rem;
+            font-weight: 600;
+        }
+        
+        .panel-content {
+            flex: 1;
+            overflow: auto;
+            position: relative;
+        }
+        
+        .CodeMirror {
+            height: 100%;
+            font-size: 14px;
+        }
+        
+        #visualEditor {
+            padding: 1rem;
+            color: #333;
+            height: 100%;
+        }
+        
+        .jsoneditor {
+            border: none;
+        }
+        
+        .tree-view {
+            padding: 1rem;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            line-height: 1.6;
+            color: #333;
+        }
+        
+        .tree-node {
+            margin-left: 20px;
+        }
+        
+        .tree-key {
+            color: #0066cc;
+            font-weight: bold;
+        }
+        
+        .tree-value {
+            color: #008000;
+        }
+        
+        .tree-string {
+            color: #d14;
+        }
+        
+        .history-panel {
+            position: fixed;
+            right: -300px;
+            top: 80px;
+            width: 300px;
+            height: calc(100vh - 80px);
+            background: rgba(255,255,255,0.95);
+            box-shadow: -5px 0 20px rgba(0,0,0,0.2);
+            transition: right 0.3s ease;
+            z-index: 1000;
+            color: #333;
+        }
+        
+        .history-panel.show {
+            right: 0;
+        }
+        
+        .history-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 1rem;
+            font-weight: 600;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .history-list {
+            padding: 1rem;
+            max-height: calc(100% - 60px);
+            overflow-y: auto;
+        }
+        
+        .history-item {
+            background: #f5f5f5;
+            border-radius: 8px;
+            padding: 0.75rem;
+            margin-bottom: 0.5rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .history-item:hover {
+            background: #e8e8e8;
+            transform: translateX(-5px);
+        }
+        
+        .history-time {
+            font-size: 0.75rem;
+            color: #666;
+        }
+        
+        .history-hash {
+            font-family: monospace;
+            font-size: 0.8rem;
+            color: #999;
+            margin-top: 0.25rem;
+        }
+        
+        .error-message {
+            background: #ff4444;
+            color: white;
+            padding: 1rem;
+            margin: 1rem;
+            border-radius: 8px;
+            animation: shake 0.5s;
+        }
+        
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-10px); }
+            75% { transform: translateX(10px); }
+        }
+        
+        .success-message {
+            position: fixed;
+            top: 100px;
+            right: 20px;
+            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+            color: white;
+            padding: 1rem 2rem;
+            border-radius: 8px;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.3);
+            animation: slideIn 0.3s ease;
+            z-index: 2000;
+        }
+        
+        @keyframes slideIn {
+            from {
+                transform: translateX(400px);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>📝 Edit1 - Visual Data Editor</h1>
+        <div class="file-info">
+            <span id="fileName">No file loaded</span> | 
+            <span id="fileType">-</span>
+        </div>
+        <div class="controls">
+            <button onclick="saveFile()" class="save-btn">💾 Save & Commit</button>
+            <button onclick="toggleHistory()">📜 History</button>
+            <button onclick="formatCode()">✨ Format</button>
+        </div>
+    </div>
+    
+    <div class="container">
+        <div class="panel">
+            <div class="panel-header">Text Editor</div>
+            <div class="panel-content">
+                <textarea id="codeEditor"></textarea>
+            </div>
+        </div>
+        
+        <div class="panel">
+            <div class="panel-header">Visual Editor</div>
+            <div class="panel-content">
+                <div id="visualEditor"></div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="history-panel" id="historyPanel">
+        <div class="history-header">
+            <span>Version History</span>
+            <button onclick="toggleHistory()" style="background: none; border: none; font-size: 1.5rem; padding: 0;">×</button>
+        </div>
+        <div class="history-list" id="historyList"></div>
+    </div>
+    
+    <script>
+        let editor;
+        let jsonEditor;
+        let currentFile = '';
+        let fileType = '';
+        let history = [];
+        
+        // Initialize CodeMirror
+        function initEditor() {
+            editor = CodeMirror.fromTextArea(document.getElementById('codeEditor'), {
+                lineNumbers: true,
+                theme: 'monokai',
+                mode: 'javascript',
+                lineWrapping: true,
+                autoCloseBrackets: true,
+                matchBrackets: true
+            });
+            
+            editor.on('change', debounce(updateVisualEditor, 500));
+        }
+        
+        // Debounce function
+        function debounce(func, wait) {
+            let timeout;
+            return function executedFunction(...args) {
+                const later = () => {
+                    clearTimeout(timeout);
+                    func(...args);
+                };
+                clearTimeout(timeout);
+                timeout = setTimeout(later, wait);
+            };
+        }
+        
+        // Load file from URL parameter
+        function loadFile() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const file = urlParams.get('file') || 'example.json';
+            currentFile = file;
+            
+            // Detect file type
+            if (file.endsWith('.yaml') || file.endsWith('.yml')) {
+                fileType = 'yaml';
+                editor.setOption('mode', 'yaml');
+            } else if (file.endsWith('.xml')) {
+                fileType = 'xml';
+                editor.setOption('mode', 'xml');
+            } else if (file.endsWith('.json')) {
+                fileType = 'json';
+                editor.setOption('mode', 'javascript');
+            }
+            
+            document.getElementById('fileName').textContent = file;
+            document.getElementById('fileType').textContent = fileType.toUpperCase();
+            
+            // Load file content (simulated)
+            loadFileContent(file);
+        }
+        
+        // Simulated file loading
+        function loadFileContent(filename) {
+            // In real implementation, this would fetch from server
+            let content = '';
+            
+            if (fileType === 'json') {
+                content = JSON.stringify({
+                    name: "Example",
+                    version: "1.0.0",
+                    description: "Sample JSON file",
+                    settings: {
+                        enabled: true,
+                        timeout: 30
+                    }
+                }, null, 2);
+            } else if (fileType === 'yaml') {
+                content = `name: Example
+version: 1.0.0
+description: Sample YAML file
+settings:
+  enabled: true
+  timeout: 30`;
+            } else if (fileType === 'xml') {
+                content = `<?xml version="1.0" encoding="UTF-8"?>
+<root>
+    <name>Example</name>
+    <version>1.0.0</version>
+    <description>Sample XML file</description>
+    <settings>
+        <enabled>true</enabled>
+        <timeout>30</timeout>
+    </settings>
+</root>`;
+            }
+            
+            editor.setValue(content);
+            updateVisualEditor();
+        }
+        
+        // Update visual editor based on text editor content
+        function updateVisualEditor() {
+            const content = editor.getValue();
+            const visualDiv = document.getElementById('visualEditor');
+            
+            try {
+                if (fileType === 'json') {
+                    const data = JSON.parse(content);
+                    
+                    if (!jsonEditor) {
+                        const options = {
+                            mode: 'tree',
+                            modes: ['tree', 'form', 'code'],
+                            onChangeJSON: function(json) {
+                                editor.setValue(JSON.stringify(json, null, 2));
+                            }
+                        };
+                        jsonEditor = new JSONEditor(visualDiv, options);
+                    }
+                    jsonEditor.set(data);
+                    
+                } else if (fileType === 'yaml') {
+                    const data = jsyaml.load(content);
+                    visualDiv.innerHTML = `<div class="tree-view">${renderTree(data)}</div>`;
+                    
+                } else if (fileType === 'xml') {
+                    const parser = new DOMParser();
+                    const xmlDoc = parser.parseFromString(content, "text/xml");
+                    
+                    if (xmlDoc.getElementsByTagName("parsererror").length > 0) {
+                        throw new Error("Invalid XML");
+                    }
+                    
+                    visualDiv.innerHTML = `<div class="tree-view">${renderXMLTree(xmlDoc.documentElement)}</div>`;
+                }
+                
+                // Remove error message if exists
+                const errorMsg = visualDiv.querySelector('.error-message');
+                if (errorMsg) errorMsg.remove();
+                
+            } catch (e) {
+                if (!visualDiv.querySelector('.error-message')) {
+                    visualDiv.innerHTML = `<div class="error-message">⚠️ Parse Error: ${e.message}</div>`;
+                }
+            }
+        }
+        
+        // Render tree view for objects
+        function renderTree(obj, indent = 0) {
+            let html = '';
+            const spacing = '  '.repeat(indent);
+            
+            if (typeof obj === 'object' && obj !== null) {
+                if (Array.isArray(obj)) {
+                    obj.forEach((item, i) => {
+                        html += `${spacing}<span class="tree-key">[${i}]</span>: `;
+                        if (typeof item === 'object') {
+                            html += '\n' + renderTree(item, indent + 1);
+                        } else {
+                            html += `<span class="tree-value">${escapeHtml(String(item))}</span>\n`;
+                        }
+                    });
+                } else {
+                    Object.keys(obj).forEach(key => {
+                        html += `${spacing}<span class="tree-key">${key}</span>: `;
+                        if (typeof obj[key] === 'object') {
+                            html += '\n' + renderTree(obj[key], indent + 1);
+                        } else if (typeof obj[key] === 'string') {
+                            html += `<span class="tree-string">"${escapeHtml(obj[key])}"</span>\n`;
+                        } else {
+                            html += `<span class="tree-value">${escapeHtml(String(obj[key]))}</span>\n`;
+                        }
+                    });
+                }
+            } else {
+                html += `<span class="tree-value">${escapeHtml(String(obj))}</span>\n`;
+            }
+            
+            return html;
+        }
+        
+        // Render XML tree
+        function renderXMLTree(node, indent = 0) {
+            let html = '';
+            const spacing = '  '.repeat(indent);
+            
+            html += `${spacing}<span class="tree-key">&lt;${node.nodeName}&gt;</span>\n`;
+            
+            // Attributes
+            if (node.attributes && node.attributes.length > 0) {
+                for (let attr of node.attributes) {
+                    html += `${spacing}  <span style="color: #ff6600">@${attr.name}</span>: <span class="tree-string">"${escapeHtml(attr.value)}"</span>\n`;
+                }
+            }
+            
+            // Child nodes
+            for (let child of node.childNodes) {
+                if (child.nodeType === 1) { // Element node
+                    html += renderXMLTree(child, indent + 1);
+                } else if (child.nodeType === 3 && child.nodeValue.trim()) { // Text node
+                    html += `${spacing}  <span class="tree-value">${escapeHtml(child.nodeValue.trim())}</span>\n`;
+                }
+            }
+            
+            html += `${spacing}<span class="tree-key">&lt;/${node.nodeName}&gt;</span>\n`;
+            
+            return html;
+        }
+        
+        // Escape HTML
+        function escapeHtml(text) {
+            const map = {
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#039;'
+            };
+            return text.replace(/[&<>"']/g, m => map[m]);
+        }
+        
+        // Save file
+        function saveFile() {
+            const content = editor.getValue();
+            
+            // Validate before saving
+            try {
+                if (fileType === 'json') {
+                    JSON.parse(content);
+                } else if (fileType === 'yaml') {
+                    jsyaml.load(content);
+                } else if (fileType === 'xml') {
+                    const parser = new DOMParser();
+                    const xmlDoc = parser.parseFromString(content, "text/xml");
+                    if (xmlDoc.getElementsByTagName("parsererror").length > 0) {
+                        throw new Error("Invalid XML");
+                    }
+                }
+                
+                // Add to history
+                const timestamp = new Date().toISOString();
+                const hash = Math.random().toString(36).substr(2, 9);
+                history.unshift({
+                    content: content,
+                    timestamp: timestamp,
+                    hash: hash
+                });
+                
+                // Keep only last 20 versions
+                if (history.length > 20) {
+                    history = history.slice(0, 20);
+                }
+                
+                updateHistoryList();
+                showSuccess('File saved and committed!');
+                
+                // In real implementation, this would send to server
+                console.log('Saving file:', currentFile, content);
+                
+            } catch (e) {
+                alert('Error: Invalid ' + fileType.toUpperCase() + ' format!\n' + e.message);
+            }
+        }
+        
+        // Format code
+        function formatCode() {
+            try {
+                const content = editor.getValue();
+                let formatted = content;
+                
+                if (fileType === 'json') {
+                    const data = JSON.parse(content);
+                    formatted = JSON.stringify(data, null, 2);
+                } else if (fileType === 'yaml') {
+                    const data = jsyaml.load(content);
+                    formatted = jsyaml.dump(data);
+                } else if (fileType === 'xml') {
+                    // Simple XML formatting
+                    formatted = content.replace(/></g, '>\n<');
+                }
+                
+                editor.setValue(formatted);
+                showSuccess('Code formatted!');
+                
+            } catch (e) {
+                alert('Error: Cannot format invalid ' + fileType.toUpperCase() + '!');
+            }
+        }
+        
+        // Toggle history panel
+        function toggleHistory() {
+            const panel = document.getElementById('historyPanel');
+            panel.classList.toggle('show');
+        }
+        
+        // Update history list
+        function updateHistoryList() {
+            const listDiv = document.getElementById('historyList');
+            listDiv.innerHTML = '';
+            
+            history.forEach((item, index) => {
+                const date = new Date(item.timestamp);
+                const timeStr = date.toLocaleString();
+                
+                const itemDiv = document.createElement('div');
+                itemDiv.className = 'history-item';
+                itemDiv.innerHTML = `
+                    <div>Version ${history.length - index}</div>
+                    <div class="history-time">${timeStr}</div>
+                    <div class="history-hash">Commit: ${item.hash}</div>
+                `;
+                
+                itemDiv.onclick = () => restoreVersion(index);
+                listDiv.appendChild(itemDiv);
+            });
+        }
+        
+        // Restore version from history
+        function restoreVersion(index) {
+            if (confirm('Restore this version?')) {
+                editor.setValue(history[index].content);
+                updateVisualEditor();
+                toggleHistory();
+                showSuccess('Version restored!');
+            }
+        }
+        
+        // Show success message
+        function showSuccess(message) {
+            const msgDiv = document.createElement('div');
+            msgDiv.className = 'success-message';
+            msgDiv.textContent = '✅ ' + message;
+            document.body.appendChild(msgDiv);
+            
+            setTimeout(() => {
+                msgDiv.remove();
+            }, 3000);
+        }
+        
+        // Initialize on load
+        window.onload = () => {
+            initEditor();
+            loadFile();
+        };
+    </script>
+</body>
+</html>
